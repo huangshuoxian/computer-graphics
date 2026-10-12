@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AP1 · 交互式 2D 分形 — Sierpinski 垫片</title>
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+        font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+        background: #11141b;
+        color: #dfe6f0;
+        display: flex;
+        height: 100vh;
+        overflow: hidden;
+    }
+    #gl-canvas {
+        flex: 1;
+        width: 100%;
+        height: 100%;
+        display: block;
+    }
+    #panel {
+        width: 300px;
+        min-width: 300px;
+        background: #1a1f2b;
+        border-left: 1px solid #2c3547;
+        padding: 18px 18px 30px;
+        overflow-y: auto;
+    }
+    #panel h1 { font-size: 17px; margin-bottom: 4px; color: #fff; }
+    #panel .sub { font-size: 12px; color: #8a97ab; margin-bottom: 14px; }
+    #mode-label { font-size: 13px; color: #6ec1ff; margin-bottom: 12px; }
+    .group {
+        background: #222839;
+        border: 1px solid #2e3a52;
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 12px;
+    }
+    .group h2 {
+        font-size: 13px;
+        color: #9fc6ff;
+        margin-bottom: 10px;
+        font-weight: 600;
+    }
+    .row { margin-bottom: 10px; }
+    .row:last-child { margin-bottom: 0; }
+    .row label {
+        display: flex;
+        justify-content: space-between;
+        font-size: 12px;
+        color: #b8c4d6;
+        margin-bottom: 4px;
+    }
+    .row label span.val { color: #6ec1ff; font-variant-numeric: tabular-nums; }
+    select, button {
+        width: 100%;
+        padding: 6px 8px;
+        background: #161a26;
+        color: #dfe6f0;
+        border: 1px solid #3a4763;
+        border-radius: 5px;
+        font-size: 13px;
+        outline: none;
+    }
+    select:focus { border-color: #6ec1ff; }
+    input[type="range"] { width: 100%; accent-color: #6ec1ff; }
+    button {
+        cursor: pointer;
+        background: #274a75;
+        border-color: #3a6bb0;
+        font-weight: 600;
+    }
+    button:hover { background: #2f5a8f; }
+    #tri-count { font-size: 12px; color: #7f8ca0; }
+    #grow-state { color: #ffd479; }
+    .keys { font-size: 12px; color: #8a97ab; line-height: 1.9; }
+    .keys b {
+        display: inline-block;
+        min-width: 22px;
+        text-align: center;
+        background: #2c3547;
+        border: 1px solid #3a4763;
+        border-radius: 4px;
+        padding: 1px 5px;
+        color: #dfe6f0;
+        font-size: 11px;
+    }
+</style>
+</head>
+<body>
+<canvas id="gl-canvas" width="1024" height="768"></canvas>
+
+<div id="panel">
+    <h1>AP1 · 交互式 2D 分形</h1>
+    <div class="sub">Sierpinski 垫片 —— 混沌游戏 × 递归细分</div>
+    <div id="mode-label"></div>
+
+    <div class="group">
+        <h2>渲染模式</h2>
+        <div class="row">
+            <select id="ctl-mode">
+                <option value="0" selected>1 · 混沌游戏（点云）</option>
+                <option value="1">2 · 递归细分 · 点云</option>
+                <option value="2">3 · 递归细分 · 线框</option>
+                <option value="3">4 · 递归细分 · 实体</option>
+                <option value="4">5 · 扩展：3D 四面体 gasket</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="group">
+        <h2>参数</h2>
+        <div class="row">
+            <label>顶点数（混沌游戏 / 点云）<span class="val" id="ctl-count-val">5000</span></label>
+            <input type="range" id="ctl-count" min="1000" max="50000" step="1000" value="5000">
+        </div>
+        <div class="row">
+            <label>递归深度（线框 / 实体）<span class="val" id="ctl-depth-val">5</span></label>
+            <input type="range" id="ctl-depth" min="0" max="6" step="1" value="5">
+        </div>
+        <div class="row">
+            <label>点大小<span class="val" id="ctl-size-val">2.0</span></label>
+            <input type="range" id="ctl-size" min="1" max="10" step="0.5" value="2">
+        </div>
+        <div class="row">
+            <label>配色方案（4 套）</label>
+            <select id="ctl-scheme">
+                <option value="0" selected>深邃夜空</option>
+                <option value="1">熔岩暖橙</option>
+                <option value="2">极光翠绿</option>
+                <option value="3">素白图纸</option>
+            </select>
+        </div>
+        <div id="tri-count"></div>
+    </div>
+
+    <div class="group">
+        <h2>混沌游戏扩展（E1）</h2>
+        <div class="row">
+            <label>多边形边数 n</label>
+            <select id="ctl-polygon">
+                <option value="3" selected>3（经典 Sierpinski）</option>
+                <option value="4">4（正方形）</option>
+                <option value="5">5（五边形）</option>
+                <option value="6">6（六边形）</option>
+                <option value="8">8（八边形）</option>
+            </select>
+        </div>
+        <div class="row">
+            <label>收缩比 r（n≥4 时建议 0.55–0.62）<span class="val" id="ctl-ratio-val">0.50</span></label>
+            <input type="range" id="ctl-ratio" min="0.30" max="0.70" step="0.01" value="0.5">
+        </div>
+    </div>
+
+    <div class="group">
+        <h2>逐点生长动画</h2>
+        <div class="row">
+            <button id="ctl-grow">▶ 开始生长</button>
+        </div>
+        <div class="row"><span id="grow-state">已暂停</span>（空格键 暂停 / 继续）</div>
+    </div>
+
+    <div class="group">
+        <h2>键盘快捷键</h2>
+        <div class="keys">
+            <b>1</b> 混沌游戏　<b>2</b> 点云<br>
+            <b>3</b> 线框　<b>4</b> 实体　<b>5</b> 3D<br>
+            <b>空格</b> 暂停 / 继续生长<br>
+            <b>R</b> 复位视图　<b>←→↑↓</b> 3D 旋转<br>
+            鼠标：左键拖动平移 · 滚轮缩放
+        </div>
+    </div>
+</div>
+
+<script src="Common/webgl-utils.js"></script>
+<script src="Common/initShaders.js"></script>
+<script src="Common/MV.js"></script>
+<script src="js/geometry.js"></script>
+<script src="js/renderer.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/interaction.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
