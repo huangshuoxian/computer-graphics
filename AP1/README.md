@@ -4,8 +4,8 @@
 （Angel & Shreiner, *Interactive Computer Graphics*, 8th ed.）配套工具库风格，
 无构建步骤，任意静态服务器即可运行。
 
-- **可运行 URL**：（待部署后填写；推荐 GitHub Pages，把本目录推上去即可）
-- **源码**：见随附 `AP1.zip`
+- **可运行 URL**：https://huangshuoxian.github.io/computer-graphics/AP1/ （GitHub Pages）
+- **源码**：见随附 `AP1.zip`（或本仓库 `AP1/` 目录）
 
 ---
 
